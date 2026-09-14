@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>PWA Cascarón - Biblioteca de Apps</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="icon" href="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f4e6.png">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --surface: #1e293b;
+      --surface-hover: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #38bdf8;
+      --primary-hover: #0ea5e9;
+      --danger: #f87171;
+      --border: #334155;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-icon {
+      font-size: 2rem;
+    }
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+    .subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .btn-upload {
+      background: var(--primary);
+      color: #0b0f19;
+      font-weight: 600;
+      padding: 10px 18px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+    }
+    .btn-upload:active {
+      transform: scale(0.97);
+    }
+    input[type="file"] {
+      display: none;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+      flex: 1;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: border-color 0.15s;
+    }
+    .card:hover {
+      border-color: var(--primary);
+    }
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .card-icon {
+      width: 44px;
+      height: 44px;
+      background: #0f172a;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      flex-shrink: 0;
+    }
+    .card-info {
+      overflow: hidden;
+    }
+    .card h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .card-meta {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      margin-top: auto;
+      padding-top: 8px;
+    }
+    .btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .btn-launch {
+      background: var(--primary);
+      color: #0b0f19;
+    }
+    .btn-launch:active {
+      background: var(--primary-hover);
+    }
+    .btn-delete {
+      background: rgba(248, 113, 113, 0.15);
+      color: var(--danger);
+      flex: 0 0 44px;
+    }
+    .btn-delete:active {
+      background: var(--danger);
+      color: #fff;
+    }
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state-icon {
+      font-size: 3.5rem;
+      margin-bottom: 12px;
+    }
+    .empty-state h2 {
+      font-size: 1.2rem;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    #viewer-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 1000;
+      flex-direction: column;
+    }
+    #viewer-modal.active {
+      display: flex;
+    }
+    #viewer-header {
+      background: #0f172a;
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+    }
+    #viewer-title {
+      font-weight: 600;
+      font-size: 1rem;
+      color: var(--text);
+    }
+    .btn-close {
+      background: var(--danger);
+      color: #fff;
+      padding: 6px 14px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    iframe {
+      flex: 1;
+      border: none;
+      width: 100%;
+      height: 100%;
+      background: #fff;
+    }
+    #progress-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(4px);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 14px;
+    }
+    #progress-overlay.active {
+      display: flex;
+    }
+    .spinner {
+      width: 42px;
+      height: 42px;
+      border: 4px solid var(--surface-hover);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-icon">📦</div>
+      <div>
+        <h1>PWA Cascarón</h1>
+        <div class="subtitle">Lanzador local de mini-aplicaciones</div>
+      </div>
+    </div>
+    <label class="btn-upload" for="zip-input">
+      <span>＋ Subir ZIP</span>
+      <input type="file" id="zip-input" accept=".zip,application/zip,application/x-zip,application/x-zip-compressed">
+    </label>
+  </header>
+
+  <div class="grid" id="apps-list"></div>
+
+  <!-- Modal Visor -->
+  <div id="viewer-modal">
+    <div id="viewer-header">
+      <span id="viewer-title">Aplicación</span>
+      <button class="btn-close" id="btn-close-viewer">Cerrar ✕</button>
+    </div>
+    <iframe id="app-frame" sandbox="allow-scripts allow-forms allow-same-origin allow-modals allow-downloads"></iframe>
+  </div>
+
+  <!-- Overlay de carga -->
+  <div id="progress-overlay">
+    <div class="spinner"></div>
+    <div id="progress-text" style="font-weight: 600;">Descomprimiendo archivos...</div>
+  </div>
+
+  <script>
+    // Mostrar errores globales en pantalla para depuración fácil
+    window.onerror = function(msg, url, line) {
+      alert("Error en la aplicación: " + msg + " (línea " + line + ")");
+    };
+    window.onunhandledrejection = function(event) {
+      alert("Error asíncrono: " + (event.reason ? event.reason.message || event.reason : "Desconocido"));
+    };
+
+    const DB_NAME = 'PWALauncherDB';
+    let db;
+
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist();
+    }
+
+    // Inicializar IndexedDB
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = function(e) {
+      db = e.target.result;
+      if (!db.objectStoreNames.contains('apps')) db.createObjectStore('apps', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('files')) db.createObjectStore('files', { keyPath: 'id' });
+    };
+    req.onsuccess = function(e) {
+      db = e.target.result;
+      renderApps();
+    };
+    req.onerror = function(e) {
+      alert("Error al abrir base de datos IndexedDB: " + e.target.error);
+    };
+
+    // Registrar Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(function(err) {
+        console.warn('SW no disponible o error:', err);
+      });
+    }
+
+    function getMime(filename) {
+      const ext = filename.split('.').pop().toLowerCase();
+      const mimes = {
+        'html': 'text/html; charset=utf-8',
+        'htm': 'text/html; charset=utf-8',
+        'css': 'text/css; charset=utf-8',
+        'js': 'application/javascript; charset=utf-8',
+        'mjs': 'application/javascript; charset=utf-8',
+        'json': 'application/json',
+        'png': 'image/png',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'gif': 'image/gif',
+        'svg': 'image/svg+xml',
+        'webp': 'image/webp',
+        'ico': 'image/x-icon',
+        'wasm': 'application/wasm',
+        'mp3': 'audio/mpeg',
+        'wav': 'audio/wav',
+        'mp4': 'video/mp4',
+        'woff': 'font/woff',
+        'woff2': 'font/woff2',
+        'ttf': 'font/ttf'
+      };
+      return mimes[ext] || 'application/octet-stream';
+    }
+
+    const zipInput = document.getElementById('zip-input');
+    const progressOverlay = document.getElementById('progress-overlay');
+    const progressText = document.getElementById('progress-text');
+    const btnCloseViewer = document.getElementById('btn-close-viewer');
+
+    btnCloseViewer.addEventListener('click', closeViewer);
+
+    // Procesar archivo ZIP
+    zipInput.addEventListener('change', async function(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      if (typeof JSZip === 'undefined') {
+        alert('Error: La librería JSZip no se ha cargado. Comprueba tu conexión a internet la primera vez.');
+        return;
+      }
+
+      progressOverlay.classList.add('active');
+      progressText.textContent = 'Leyendo archivo ZIP (' + (file.size / 1024).toFixed(1) + ' KB)...';
+
+      try {
+        const zip = await JSZip.loadAsync(file);
+        const appName = file.name.replace(/\.zip$/i, '');
+        const appId = 'app_' + Date.now();
+
+        // Detectar si hay una carpeta contenedora
+        const fileNames = Object.keys(zip.files).filter(function(p) { return !zip.files[p].dir; });
+        if (fileNames.length === 0) {
+          throw new Error('El archivo ZIP está vacío.');
+        }
+
+        let commonPrefix = '';
+        const firstSlash = fileNames[0].indexOf('/');
+        if (firstSlash !== -1) {
+          const candidate = fileNames[0].substring(0, firstSlash + 1);
+          if (fileNames.every(function(name) { return name.startsWith(candidate); })) {
+            commonPrefix = candidate;
+          }
+        }
+
+        progressText.textContent = 'Extrayendo ' + fileNames.length + ' archivo(s)...';
+
+        // Extraer todos los blobs en memoria
+        const extractedFiles = [];
+        for (let i = 0; i < fileNames.length; i++) {
+          const entryName = fileNames[i];
+          const zipEntry = zip.files[entryName];
+          let cleanPath = entryName;
+          if (commonPrefix && cleanPath.startsWith(commonPrefix)) {
+            cleanPath = cleanPath.slice(commonPrefix.length);
+          }
+          if (cleanPath.startsWith('/')) cleanPath = cleanPath.slice(1);
+
+          const blob = await zipEntry.async('blob');
+          extractedFiles.push({
+            id: appId + ':' + cleanPath,
+            blob: blob,
+            mimeType: getMime(cleanPath)
+          });
+        }
+
+        progressText.textContent = 'Guardando en la base de datos local...';
+
+        // Guardar en IndexedDB
+        await new Promise(function(resolve, reject) {
+          const tx = db.transaction(['apps', 'files'], 'readwrite');
+          const appsStore = tx.objectStore('apps');
+          const filesStore = tx.objectStore('files');
+
+          tx.oncomplete = function() { resolve(); };
+          tx.onerror = function() { reject(tx.error); };
+          tx.onabort = function() { reject(tx.error); };
+
+          appsStore.put({
+            id: appId,
+            name: appName,
+            date: new Date().toLocaleDateString(),
+            size: (file.size / 1024).toFixed(1) + ' KB'
+          });
+
+          for (let j = 0; j < extractedFiles.length; j++) {
+            filesStore.put(extractedFiles[j]);
+          }
+        });
+
+        progressOverlay.classList.remove('active');
+        renderApps();
+        zipInput.value = '';
+      } catch (err) {
+        progressOverlay.classList.remove('active');
+        zipInput.value = '';
+        alert('Error al instalar ZIP: ' + (err.message || err));
+      }
+    });
+
+    // Renderizar aplicaciones de forma robusta con DOM directo (sin onclick string bugs)
+    function renderApps() {
+      const list = document.getElementById('apps-list');
+      list.innerHTML = '';
+      if (!db) return;
+
+      const tx = db.transaction('apps', 'readonly');
+      const store = tx.objectStore('apps');
+      const req = store.getAll();
+
+      req.onsuccess = function(e) {
+        const apps = e.target.result;
+        if (!apps || apps.length === 0) {
+          list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📂</div><h2>Biblioteca vacía</h2><p>Pulsa en "+ Subir ZIP" para añadir tu primera aplicación web.</p></div>';
+          return;
+        }
+
+        apps.forEach(function(app) {
+          const card = document.createElement('div');
+          card.className = 'card';
+
+          const header = document.createElement('div');
+          header.className = 'card-header';
+
+          const icon = document.createElement('div');
+          icon.className = 'card-icon';
+          icon.textContent = '🚀';
+
+          const info = document.createElement('div');
+          info.className = 'card-info';
+
+          const title = document.createElement('h3');
+          title.textContent = app.name;
+          title.title = app.name;
+
+          const meta = document.createElement('div');
+          meta.className = 'card-meta';
+          meta.textContent = 'Instalada: ' + app.date + ' • ' + (app.size || '');
+
+          info.appendChild(title);
+          info.appendChild(meta);
+          header.appendChild(icon);
+          header.appendChild(info);
+
+          const actions = document.createElement('div');
+          actions.className = 'actions';
+
+          const btnLaunch = document.createElement('button');
+          btnLaunch.className = 'btn btn-launch';
+          btnLaunch.textContent = 'Abrir';
+          btnLaunch.addEventListener('click', function() {
+            launchApp(app.id, app.name);
+          });
+
+          const btnDelete = document.createElement('button');
+          btnDelete.className = 'btn btn-delete';
+          btnDelete.textContent = '✕';
+          btnDelete.title = 'Eliminar';
+          btnDelete.addEventListener('click', function() {
+            deleteApp(app.id);
+          });
+
+          actions.appendChild(btnLaunch);
+          actions.appendChild(btnDelete);
+
+          card.appendChild(header);
+          card.appendChild(actions);
+
+          list.appendChild(card);
+        });
+      };
+    }
+
+    function launchApp(appId, name) {
+      document.getElementById('viewer-title').textContent = name;
+      document.getElementById('app-frame').src = './virtual-app/' + appId + '/index.html';
+      document.getElementById('viewer-modal').classList.add('active');
+    }
+
+    function closeViewer() {
+      document.getElementById('viewer-modal').classList.remove('active');
+      document.getElementById('app-frame').src = 'about:blank';
+    }
+
+    function deleteApp(appId) {
+      if (!confirm('¿Deseas eliminar esta aplicación de tu biblioteca local?')) return;
+      const tx = db.transaction(['apps', 'files'], 'readwrite');
+      tx.objectStore('apps').delete(appId);
+
+      const filesStore = tx.objectStore('files');
+      const req = filesStore.openCursor();
+      req.onsuccess = function(e) {
+        const cursor = e.target.result;
+        if (cursor) {
+          if (typeof cursor.key === 'string' && cursor.key.startsWith(appId + ':')) {
+            cursor.delete();
+          }
+          cursor.continue();
+        }
+      };
+      tx.oncomplete = function() {
+        renderApps();
+      };
+    }
+  </script>
+</body>
+</html>
